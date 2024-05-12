@@ -15,6 +15,7 @@
 		E05269E52BF0E7C70080F570 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = E05269E42BF0E7C70080F570 /* Base */; };
 		E05269E72BF0E7C90080F570 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E05269E62BF0E7C90080F570 /* Assets.xcassets */; };
 		E05269EA2BF0E7C90080F570 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = E05269E92BF0E7C90080F570 /* Base */; };
+		E05269F12BF0F01D0080F570 /* Skater.swift in Sources */ = {isa = PBXBuildFile; fileRef = E05269F02BF0F01D0080F570 /* Skater.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 		E05269E42BF0E7C70080F570 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		E05269E62BF0E7C90080F570 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E05269E92BF0E7C90080F570 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		E05269F02BF0F01D0080F570 /* Skater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Skater.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +69,7 @@
 				E05269E32BF0E7C70080F570 /* Main.storyboard */,
 				E05269E62BF0E7C90080F570 /* Assets.xcassets */,
 				E05269E82BF0E7C90080F570 /* LaunchScreen.storyboard */,
+				E05269F02BF0F01D0080F570 /* Skater.swift */,
 			);
 			path = SchoolhouseSkateboarder;
 			sourceTree = "<group>";
@@ -145,6 +148,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E05269E02BF0E7C70080F570 /* GameScene.swift in Sources */,
+				E05269F12BF0F01D0080F570 /* Skater.swift in Sources */,
 				E05269E22BF0E7C70080F570 /* GameViewController.swift in Sources */,
 				E05269DA2BF0E7C70080F570 /* AppDelegate.swift in Sources */,
 			);
