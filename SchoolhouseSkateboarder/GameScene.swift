@@ -8,11 +8,15 @@
 import SpriteKit
 import GameplayKit
 
-class GameScene: SKScene {
-    
-    
-//    private var label : SKLabelNode?
-//    private var spinnyNode : SKShapeNode?
+// Эта структура содержит различные физические категории, и мы можем определить,
+// какие типы объектов сталкиваются или контактируют друг с другом
+struct PhysicsCategory {
+    static let skater: UInt32 = 0x1 << 0
+    static let brick: UInt32 = 0x1 << 1
+    static let gem: UInt32 = 0x1 << 2
+}
+
+class GameScene: SKScene, SKPhysicsContactDelegate {
     
     // Массив, содержащий все текущие секции тротуара
     var bricks = [SKSpriteNode]()
@@ -21,6 +25,7 @@ class GameScene: SKScene {
     // Настройка скорости движения направо для игры
     // Это значение может увеличиваться по мере продвижения пользователя в игре
     var scrollSpeed: CGFloat = 5.0
+    let startingScrollSpeed: CGFloat = 5.0
     // Константа для гравитации
     let gravitySpeed: CGFloat = 1.5
     // Время последнего вызова для метода обновления
@@ -30,6 +35,10 @@ class GameScene: SKScene {
     let skater = Skater(imageNamed: "skater")
     
     override func didMove(to view: SKView) {
+        
+        physicsWorld.gravity = CGVector(dx: 0.0, dy: -6.0)
+        physicsWorld.contactDelegate = self
+        
         anchorPoint = CGPoint.zero
         
         let background = SKSpriteNode(imageNamed: "background")
@@ -39,13 +48,15 @@ class GameScene: SKScene {
         addChild(background)
         
         // Настраиваем свойства скейтбордистки и добавляем ее в сцену
-        resetSkater()
+        skater.setupPhysicsBody()
         addChild(skater)
         
         // Добавляем распознаватель нажатия, чтобы знать, когда пользователь нажимает на экран
         let tapMethod = #selector(GameScene.handleTap(tapGesture:))
         let tapGesture = UITapGestureRecognizer(target: self, action: tapMethod)
         view.addGestureRecognizer(tapGesture)
+        
+        startGame()
     }
     
     func resetSkater() {
@@ -55,6 +66,27 @@ class GameScene: SKScene {
         skater.position = CGPoint(x: skaterX, y: skaterY)
         skater.zPosition = 10
         skater.minimumY = skaterY
+        
+        skater.zRotation = 0.0
+        skater.physicsBody?.velocity = CGVector(dx: 0.0, dy: 0.0)
+        skater.physicsBody?.angularVelocity = 0.0
+    }
+    
+    func startGame() {
+        // Возвращаемся к начальным условиям при запуске новой игры
+        resetSkater()
+        
+        scrollSpeed = startingScrollSpeed
+        lastUpdateTime = nil
+        
+        for brick in bricks {
+            brick.removeFromParent()
+        }
+        bricks.removeAll(keepingCapacity: true)
+    }
+    
+    func gameOver() {
+        startGame()
     }
     
     func spawnBrick(atPosition position: CGPoint) -> SKSpriteNode {
@@ -69,6 +101,13 @@ class GameScene: SKScene {
         
         // Добавляем новую секцию к массиву
         bricks.append(brick)
+        
+        // Настройка физического тела секции
+        let center = brick.centerRect.origin
+        brick.physicsBody = SKPhysicsBody(rectangleOf: brick.size, center: center)
+        brick.physicsBody?.affectedByGravity = false
+        brick.physicsBody?.categoryBitMask = PhysicsCategory.brick
+        brick.physicsBody?.collisionBitMask = 0
         
         // Возвращаем новую секцию вызывающему коду
         return brick
@@ -115,21 +154,39 @@ class GameScene: SKScene {
     }
     
     func updateSkater() {
-        if !skater.isOnGround {
-            // Устанавливаем новое значение скорости скейтбордистки с учетом влияния гравитации
-            let velocityY = skater.velocity.y - gravitySpeed
-            skater.velocity = CGPoint(x: skater.velocity.x, y: velocityY)
-            // Устанавливаем новое положение скейтбордистки по оси y на основе ее скорости
-            let newSkaterY: CGFloat = skater.position.y + skater.velocity.y
-            skater.position = CGPoint(x: skater.position.x, y: newSkaterY)
+        // Определяем, находится ли скейтбордистка на земле
+        if let velocityY = skater.physicsBody?.velocity.dy {
             
-            // Проверяем, приземлилась ли скейтбордистка
-            if skater.position.y < skater.minimumY {
-                skater.position.y = skater.minimumY
-                skater.velocity = CGPoint.zero
-                skater.isOnGround = true
+            if velocityY < -100.0 || velocityY > 100.0 {
+                skater.isOnGround = false
             }
         }
+        
+        // Проверяем, должна ли игра закончиться
+        let isOffScreen = skater.position.y < 0.0 || skater.position.x < 0.0
+        
+        let maxRotation = CGFloat(GLKMathDegreesToRadians(85.0))
+        let isTippedOver = skater.zRotation > maxRotation || skater.zRotation < -maxRotation
+        
+        if isOffScreen || isTippedOver {
+            gameOver()
+        }
+        
+//        if !skater.isOnGround {
+//            // Устанавливаем новое значение скорости скейтбордистки с учетом влияния гравитации
+//            let velocityY = skater.velocity.y - gravitySpeed
+//            skater.velocity = CGPoint(x: skater.velocity.x, y: velocityY)
+//            // Устанавливаем новое положение скейтбордистки по оси y на основе ее скорости
+//            let newSkaterY: CGFloat = skater.position.y + skater.velocity.y
+//            skater.position = CGPoint(x: skater.position.x, y: newSkaterY)
+//            
+//            // Проверяем, приземлилась ли скейтбордистка
+//            if skater.position.y < skater.minimumY {
+//                skater.position.y = skater.minimumY
+//                skater.velocity = CGPoint.zero
+//                skater.isOnGround = true
+//            }
+//        }
     }
     
     override func update(_ currentTime: TimeInterval) {
@@ -152,10 +209,15 @@ class GameScene: SKScene {
     @objc func handleTap(tapGesture: UITapGestureRecognizer) {
         // Скейтбордистка прыгает, если игрок нажимает на экран, пока она находится на земле
         if skater.isOnGround {
-            // Задаем для скейтбордистки скорость по оси y, равную ее изначальной скорости прыжка
-            skater.velocity = CGPoint(x: 0.0, y: skater.jumpSpeed)
-            // Отмечаем, что скейтбордистка уже не находится на земле
-            skater.isOnGround = false
+            skater.physicsBody?.applyImpulse(CGVector(dx: 0.0, dy: 260.0))
         }
     }
+    // MARK:- SKPhysicsContactDelegate Methods
+    func didBegin(_ contact: SKPhysicsContact) {
+        // Проверяем, есть ли контакт между скейтбордисткой и секцией
+        if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.brick {
+            skater.isOnGround = true
+        }
+    }
+    
 }
