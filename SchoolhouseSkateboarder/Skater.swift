@@ -27,4 +27,21 @@ class Skater: SKSpriteNode {
             physicsBody?.contactTestBitMask = PhysicsCategory.brick | PhysicsCategory.gem
         }
     }
+    
+    func createSparks() {
+        // Находим файл эммитера искр в проекте
+        let bundle = Bundle.main
+        if let sparksPath = bundle.path(forResource: "sparks", ofType: "sks") {
+            // Создаем узел эмиттера искр
+            let sparksNode = NSKeyedUnarchiver.unarchiveObject(withFile: sparksPath) as! SKEmitterNode
+            sparksNode.position = CGPoint(x: 0.0, y: -50.0)
+            addChild(sparksNode)
+            
+            // Производим действие, ждем полсекунды, а затем удаляем эммитер
+            let waitAction = SKAction.wait(forDuration: 0.5)
+            let removeAction = SKAction.removeFromParent()
+            let waitThenRemove = SKAction.sequence([waitAction, removeAction])
+            sparksNode.run(waitThenRemove)
+        }
+    }
 }
