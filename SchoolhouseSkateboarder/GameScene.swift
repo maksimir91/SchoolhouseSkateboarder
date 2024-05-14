@@ -18,16 +18,31 @@ struct PhysicsCategory {
 
 class GameScene: SKScene, SKPhysicsContactDelegate {
     
+    // Enum для положения секции по y
+    // Секции  на земле низкие, а секции на верхней платформе - высокие
+    enum BrickLevel: CGFloat {
+        case low = 0.0
+        case high = 100.0
+    }
+    
     // Массив, содержащий все текущие секции тротуара
     var bricks = [SKSpriteNode]()
+    // Массив, содержащий все активные алмазы
+    var gems = [SKSpriteNode]()
     //Размер секций на тротуаре
     var brickSize = CGSize.zero
+    // Текущий уровень определяет положение по оси y для новых секций
+    var brickLevel = BrickLevel.low
     // Настройка скорости движения направо для игры
     // Это значение может увеличиваться по мере продвижения пользователя в игре
     var scrollSpeed: CGFloat = 5.0
     let startingScrollSpeed: CGFloat = 5.0
     // Константа для гравитации
     let gravitySpeed: CGFloat = 1.5
+    // Свойства для отслеживания результата
+    var score: Int = 0
+    var highScore: Int = 0
+    var lastScoreUpdateTime: TimeInterval = 0.0
     // Время последнего вызова для метода обновления
     var lastUpdateTime: TimeInterval?
     
@@ -46,6 +61,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let yMid = frame.midY
         background.position = CGPoint(x: xMid, y: yMid)
         addChild(background)
+        
+        setupLabels()
         
         // Настраиваем свойства скейтбордистки и добавляем ее в сцену
         skater.setupPhysicsBody()
@@ -72,20 +89,84 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         skater.physicsBody?.angularVelocity = 0.0
     }
     
+    func setupLabels() {
+        // Надпись со словами "очки" в верхнем левом углу
+        let scoreTextLabel: SKLabelNode = SKLabelNode(text: "Очки")
+        scoreTextLabel.position = CGPoint(x: 20.0, y: frame.size.height - 30.0)
+        scoreTextLabel.horizontalAlignmentMode = .left
+        scoreTextLabel.fontName = "Courier-Bold"
+        scoreTextLabel.fontSize = 14.0
+        scoreTextLabel.zPosition = 20
+        addChild(scoreTextLabel)
+        
+        // Надпись с количеством очков игрока в текущей игре
+        let scoreLabel: SKLabelNode = SKLabelNode(text: "0")
+        scoreLabel.position = CGPoint(x: 20.0, y: frame.size.height - 60.0)
+        scoreLabel.horizontalAlignmentMode = .left
+        scoreLabel.fontName = "Courier-Bold"
+        scoreLabel.fontSize = 18.0
+        scoreLabel.name = "scoreLabel"
+        scoreLabel.zPosition = 20
+        addChild(scoreLabel)
+        
+        // Надпись "лучший результат" в правом верхнем углу
+        let highScoreTextLabel: SKLabelNode = SKLabelNode(text: "Лучший результат")
+        highScoreTextLabel.position = CGPoint(x: frame.size.width - 20.0, y: frame.size.height - 30.0)
+        highScoreTextLabel.horizontalAlignmentMode = .right
+        highScoreTextLabel.fontName = "Courier-Bold"
+        highScoreTextLabel.fontSize = 14.0
+        highScoreTextLabel.zPosition = 20
+        addChild(highScoreTextLabel)
+        
+        // Надпись с максимумом набранных игроком очков
+        let highScoreLabel: SKLabelNode = SKLabelNode(text: "0")
+        highScoreLabel.position = CGPoint(x: frame.size.width - 20.0, y: frame.size.height - 60.0)
+        highScoreLabel.horizontalAlignmentMode = .right
+        highScoreLabel.fontName = "Courier-Bold"
+        highScoreLabel.fontSize = 18.0
+        highScoreLabel.name = "highScoreLabel"
+        highScoreLabel.zPosition = 20
+        addChild(highScoreLabel)
+    }
+    
+    func updateScoreLabelText() {
+        if let scoreLabel = childNode(withName: "scoreLabel") as? SKLabelNode {
+            scoreLabel.text = String(format: "%04d", score)
+        }
+    }
+    
+    func updateHighScoreLabelText() {
+        if let highScoreLabel = childNode(withName: "highScoreLabel") as? SKLabelNode {
+            highScoreLabel.text = String(format: "%04d", highScore)
+        }
+    }
+    
     func startGame() {
         // Возвращаемся к начальным условиям при запуске новой игры
         resetSkater()
         
+        score = 0
         scrollSpeed = startingScrollSpeed
+        brickLevel = .low
         lastUpdateTime = nil
         
         for brick in bricks {
             brick.removeFromParent()
         }
         bricks.removeAll(keepingCapacity: true)
+        
+        for gem in gems {
+            removeGem(gem)
+        }
     }
     
     func gameOver() {
+        // По завершении игры проверяем, добился ли игрок нового рекорда
+        if score > highScore {
+            highScore = score
+            updateHighScoreLabelText()
+        }
+        
         startGame()
     }
     
@@ -113,6 +194,28 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         return brick
     }
     
+    func spawnGem(atPosition position: CGPoint) {
+        // Создаем спрайт для алмаза и добавляем его к сцене
+        let gem = SKSpriteNode(imageNamed: "gem")
+        gem.position = position
+        gem.zPosition = 9
+        addChild(gem)
+        gem.physicsBody = SKPhysicsBody(rectangleOf: gem.size, center: gem.centerRect.origin)
+        gem.physicsBody?.categoryBitMask = PhysicsCategory.gem
+        gem.physicsBody?.affectedByGravity = false
+        
+        // Добавляем новый алмаз к массиву
+        gems.append(gem)
+    }
+    
+    func removeGem(_ gem: SKSpriteNode) {
+        gem.removeFromParent()
+        
+        if let gemIndex = gems.firstIndex(of: gem) {
+            gems.remove(at: gemIndex)
+        }
+    }
+    
     func updateBricks(withScrollAmount currentScrollAmount: CGFloat) {
         //Отслеживаем самое большое значение по оси Х для всех существующих секций
         var farthestRightBrickX: CGFloat = 0.0
@@ -138,18 +241,48 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Цикл while, обеспечивающий постоянное наполнение экрана секциями
         while farthestRightBrickX < frame.width {
             var brickX = farthestRightBrickX + brickSize.width + 1.0 // протестировать, как будет выглядеть без + 1.0
-            let brickY = brickSize.height / 2.0
+            let brickY = (brickSize.height / 2.0) + brickLevel.rawValue
             
             // Время от времени оставляем разрывы, через которые герой должен перепрыгнуть
             let randomNumber = arc4random_uniform(99)
-            if randomNumber < 5 {
-                // 5% шанс на то, что возникнет разрыв
+            if randomNumber < 2 && score > 10 {
+                // 2% шанс на то, что возникнет разрыв между секциями после того, как игрок
+                // набрал 10 очков
                 let gap = 20.0 * scrollSpeed
                 brickX += gap
+                // На каждом разрыве добавляем алмаз
+                let randomGemYAmount = CGFloat(arc4random_uniform(150))
+                let newGemY = brickY + skater.size.height + randomGemYAmount
+                let newGemX = brickX - gap / 2.0
+                
+                spawnGem(atPosition: CGPoint(x: newGemX, y: newGemY))
+            } else if randomNumber < 4 && score > 20 {
+                // В игре имеется 2% шанс на изменение уровня секции
+                // 2% шанс на то, что уровень секции Y изменится после того, как игрок
+                // набрал 20 очков
+                if brickLevel == .high {
+                    brickLevel = .low
+                }
+                else if brickLevel == .low {
+                    brickLevel = .high
+                }
             }
             // Добавляем новую секцию и обновляем положение самой правой
             let newBrick = spawnBrick(atPosition: CGPoint(x: brickX, y: brickY))
             farthestRightBrickX = newBrick.position.x
+        }
+    }
+    
+    func updateGems(withScrollAmount currentScrollAmount: CGFloat) {
+        for gem in gems {
+            // Обновляем положение каждого алмаза
+            let thisGemX = gem.position.x - currentScrollAmount
+            gem.position = CGPoint(x: thisGemX, y: gem.position.y)
+            
+            // Удаляем любые алмазы, ушедшие с экрана
+            if gem.position.x < 0.0 {
+                removeGem(gem   )
+            }
         }
     }
     
@@ -171,25 +304,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         if isOffScreen || isTippedOver {
             gameOver()
         }
+    }
+    
+    func updateScore(withCurrentTime currentTime: TimeInterval) {
+        // Количество очков игрока увеличивается по мере игры
+        // Счет обновляется каждую секунду
+        let elapsedTime = currentTime - lastScoreUpdateTime
         
-//        if !skater.isOnGround {
-//            // Устанавливаем новое значение скорости скейтбордистки с учетом влияния гравитации
-//            let velocityY = skater.velocity.y - gravitySpeed
-//            skater.velocity = CGPoint(x: skater.velocity.x, y: velocityY)
-//            // Устанавливаем новое положение скейтбордистки по оси y на основе ее скорости
-//            let newSkaterY: CGFloat = skater.position.y + skater.velocity.y
-//            skater.position = CGPoint(x: skater.position.x, y: newSkaterY)
-//            
-//            // Проверяем, приземлилась ли скейтбордистка
-//            if skater.position.y < skater.minimumY {
-//                skater.position.y = skater.minimumY
-//                skater.velocity = CGPoint.zero
-//                skater.isOnGround = true
-//            }
-//        }
+        if elapsedTime > 1.0 {
+            // Увеличиваем кол-во очков
+            score += Int(scrollSpeed)
+            // Присвиваем свойству lastScoreUpdateTime значение текущего времени
+            lastScoreUpdateTime = currentTime
+            
+            updateScoreLabelText()
+        }
     }
     
     override func update(_ currentTime: TimeInterval) {
+        // Медленно увеличиваем значение scrollSpeed по мере развития игры
+        scrollSpeed += 0.001
+        
         // Called before each frame is rendered
         var elapsedTime: TimeInterval = 0.0
         if let lastTimeStamp = lastUpdateTime {
@@ -204,6 +339,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         let currentScrollAmount = scrollSpeed * scrollAdjustment
         updateBricks(withScrollAmount: currentScrollAmount)
         updateSkater()
+        updateGems(withScrollAmount: currentScrollAmount)
+        updateScore(withCurrentTime: currentTime)
     }
     
     @objc func handleTap(tapGesture: UITapGestureRecognizer) {
@@ -217,6 +354,15 @@ class GameScene: SKScene, SKPhysicsContactDelegate {
         // Проверяем, есть ли контакт между скейтбордисткой и секцией
         if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.brick {
             skater.isOnGround = true
+        } 
+        else if contact.bodyA.categoryBitMask == PhysicsCategory.skater && contact.bodyB.categoryBitMask == PhysicsCategory.gem {
+            // Cкейтбордистка коснулась алмаза, поэтому мы его убираем
+            if let gem = contact.bodyB.node as? SKSpriteNode {
+                removeGem(gem)
+                // Даем 50 очков игроку за собранный алмаз
+                score += 50
+                updateScoreLabelText()
+            }
         }
     }
     
